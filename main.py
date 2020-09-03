@@ -60,13 +60,11 @@ def get_parser():
 		type = str,
 		help = 'model file name starts with')
 
-	# optimizer
 	parser.add_argument('--optimizer',
 		default = 'SGD',
 		type = str,
 		help = 'Select an optimizer: TBD')
 
-	# general parameters
 	parser.add_argument('--epoch_max', default = 12, type = int,
 		help = 'max # of epcoh')
 	parser.add_argument('--display', default = 100, type = int,
@@ -77,13 +75,13 @@ def get_parser():
 		help = 'resume training from specified epoch')
 	parser.add_argument('--resume', default = '', type = str,
 		help = 'resume training from specified model state')
-	parser.add_argument('--w2v_file', default = './data/voc/voc_word2vec.pkl', type = str,)
-	parser.add_argument('--adj_file', default='./data/voc/voc_adj.pkl', type=str,)
-	parser.add_argument("--p", type=float, default=0.15)  # the p value used in the adjecent matrix
-	parser.add_argument("--tao", type=float, default=0.4) # as above
-	parser.add_argument("--gcn_lr", type=float, default=0.1)  # as above
-	parser.add_argument("--acc_steps", type=int, default=0)  # as above
-	parser.add_argument("--lr_scale", type=int, default=10)  # as above
+	parser.add_argument('--w2v_file', default = './data/mirflickr25k/mirflickr25k_word2vec.pkl', type = str,)
+	parser.add_argument('--adj_file', default='./data/mirflickr25k/mirflickr25k_adj.pkl', type=str,)
+	parser.add_argument("--p", type=float, default=0.15)  
+	parser.add_argument("--tao", type=float, default=0.4) 
+	parser.add_argument("--gcn_lr", type=float, default=0.1)  
+	parser.add_argument("--acc_steps", type=int, default=0)  
+	parser.add_argument("--lr_scale", type=int, default=10)  
 	parser.add_argument('-e', '--evaluate', action='store_true')
 
 	parser.add_argument('--test', default = True, type = bool,
@@ -103,8 +101,6 @@ def main():
 	max_ap = -1
 	ALL_RESULT = {}
 
-
-	# load data
 	opts = get_configs(args.dataset)
 	print(opts)
 	if args.dataset in ["wider", "pa-100k"]:
@@ -126,17 +122,12 @@ def main():
 	
 	batch_amount = train_loader.__len__()
 
-
-	# path to save models
 	if not os.path.isdir(args.model_dir):
 		print("Make directory: " + args.model_dir)
 		os.makedirs(args.model_dir)
 
-	# prefix of saved checkpoint
 	model_prefix = args.model_dir + '/' + args.model_prefix + args.dataset
 
-
-	# define the model: use ResNet50 as an example
 	if args.arch == "resnet50":
 		from resnet import resnet50
 		model = resnet50(pretrained=True, num_labels=opts["num_labels"])
@@ -154,10 +145,8 @@ def main():
 	else:
 		raise NotImplementedError("To be implemented!")
 		
-	# print(model)
 	if torch.cuda.is_available():    model.cuda()
 
-	## resume with exiting `pretrained-model`
 	if args.start_epoch != 0:
 		resume_model = torch.load(args.resume)
 		resume_dict = resume_model.state_dict()
@@ -166,7 +155,6 @@ def main():
 		model_dict.update(resume_dict)
 		model.load_state_dict(model_dict)
 	if args.evaluate:
-		## only test once, use command '-e'
 		if os.path.isfile(args.resume):
 			resume_model = torch.load(args.resume)
 			resume_dict = resume_model.state_dict()
@@ -200,13 +188,11 @@ def main():
 	else:
 		if args.optimizer == 'Adam':
 			optimizer = optim.Adam(
-				# model.parameters(),
 				model.get_config_optim(args.learning_rate, scale=float(args.lr_scale)),
 				lr = args.learning_rate
 			)
 		elif args.optimizer == 'SGD':
 			optimizer = optim.SGD(
-				# model.parameters(),
 				model.get_config_optim(args.learning_rate, scale=float(args.lr_scale)),
 				lr = args.learning_rate,
 				momentum = args.momentum,
@@ -215,10 +201,8 @@ def main():
 		else:
 			raise NotImplementedError("For our datasets, this optimizer Not supported yet!")
 
-	# training the network
 	model.train()
 
-	# attention map size
 	w1 = 7
 	h1 = 7
 	grid_l = generate_flip_grid(w1, h1)
@@ -227,12 +211,10 @@ def main():
 	h2 = 6
 	grid_s = generate_flip_grid(w2, h2)
 
-	# least common multiple, 42
 	lcm = w1 * w2
 
 	criterion = SigmoidCrossEntropyLoss
 	criterion_mse = nn.MSELoss(reduction='mean')
-	# start training processing
 	for epoch in range(args.start_epoch, args.epoch_max):
 		backward_count = 0
 		epoch_start = time.clock()
@@ -241,27 +223,19 @@ def main():
 			adjust_learning_rate(optimizer, epoch, args)
 		train_loader = tqdm(train_loader, desc="({0})Training".format(int(epoch)))
 		for step, batch_data in enumerate(train_loader):
-			# every batch_data includes 5 items
-			# index 0~1 are two 224*224 image matrix [batchsize, channel(3), 224,224], one origin, one flip
-			# index 2~3 are two 192*192 image matrix, [batchsize, channel(3), 192, 192], one origin, one flip
-			# index 4 is batchsize*num_classes(for wider attribute is 14)
-			
 			batch_images_lo = batch_data[0]
 			batch_images_lf = batch_data[1]
 			batch_images_so = batch_data[2]
 			batch_images_sf = batch_data[3]
 			batch_labels = batch_data[4]
-			if args.dataset in  ["coco", 'voc2007', 'mirflickr25k', 'nuswide']:
+			if args.dataset in  ["coco", 'mirflickr25k', 'nuswide']:
 				dataset_flag = True
 				batch_inp = batch_data[5]
 
-			batch_labels[batch_labels == -1] = 0	# if one label==-1, transfer 0
+			batch_labels[batch_labels == -1] = 0	
 
-			# batch_images_l size is [2*batchsize, 3, 224, 224]
 			batch_images_l = torch.cat((batch_images_lo, batch_images_lf))
-			# batch_images_l size is [2*batchsize, 3, 192, 192]
 			batch_images_s = torch.cat((batch_images_so, batch_images_sf))
-			# four images, their labels are identical
 			batch_labels = torch.cat((batch_labels, batch_labels, batch_labels, batch_labels))
 			
 			if torch.cuda.is_available():
@@ -279,9 +253,6 @@ def main():
 				with torch.no_grad():
 					inp_var = torch.autograd.Variable(inp_var).float()
 
-			# return [`output`, `heatmap`]
-			# hm_l size is [2*batchsize, num_classes, 7, 7], hm_s size is [2*batchsize, num_classes, 6, 6]
-			# out_l size is identical with output_s, equals [2*batchsize, num_classes]
 			if arch_flag:
 				output_l, hm_l = model(inputs_l, inp_var)
 				output_s, hm_s = model(inputs_s, inp_var)
@@ -289,50 +260,36 @@ def main():
 				output_l, hm_l = model(inputs_l)
 				output_s, hm_s = model(inputs_s)
 			
-			# output size is [4*batchsize, num_classes]
 			output = torch.cat((output_l, output_s))
 			loss = criterion(output, labels, w_p, w_n)
 
-			# flip
 			num = hm_l.size(0) // 2
 
-			## hm2.shape = [batchsize, num_classes, 7(or 6) , 7(or 6)]
-			hm1, hm2 = hm_l.split(num)	# `batchsize` piece of imgs, `num_classes` piece of feature-maps
+			hm1, hm2 = hm_l.split(num)	
 			flip_grid_large = grid_l.expand(num, -1, -1, -1)
-			# flip_grid_large = Variable(flip_grid_large, requires_grad = False)
 			flip_grid_large = flip_grid_large.permute(0, 2, 3, 1)
-			# print("flip_grid_large=\n{0}\n, flip_grid_large.shape={1}".format(flip_grid_large,flip_grid_large.shape))
 			hm2_flip = F.grid_sample(hm2, flip_grid_large, mode = 'bilinear',
 				padding_mode = 'border')
-			# print('type(hm2)={0}, hm2.shape={1}, hm2=\n{2}\n'.format(type(hm2), hm2.shape, hm2[0,0,:,:]))
-			# print('type(hm2_flip)={0}, hm2_flip.shape={1}, hm2_flip=\n{2}\n'	\
-			# 	  .format(type(hm2_flip), hm2_flip.shape, hm2_flip[0,0,:,:]))
 			flip_loss_l = F.mse_loss(hm1, hm2_flip)
 
 			hm1_small, hm2_small = hm_s.split(num)
 			flip_grid_small = grid_s.expand(num, -1, -1, -1)
-			# flip_grid_small = Variable(flip_grid_small, requires_grad = False)
 			flip_grid_small = flip_grid_small.permute(0, 2, 3, 1)
 			hm2_small_flip = F.grid_sample(hm2_small, flip_grid_small, mode = 'bilinear',
 				padding_mode = 'border')
 			flip_loss_s = F.mse_loss(hm1_small, hm2_small_flip)
 
-			# scale loss
 			num = hm_l.size(0)
-			# two upsample process
-			hm_l = F.interpolate(hm_l, lcm)		#F.upsample(hm_l, lcm)
-			hm_s = F.interpolate(hm_s, lcm)		#F.upsample(hm_s, lcm)
+			hm_l = F.interpolate(hm_l, lcm)	
+			hm_s = F.interpolate(hm_s, lcm)	
 			scale_loss = F.mse_loss(hm_l, hm_s)
 			
-			# calc the overall loss, incorporate four parts
-			#losses = #loss + (flip_loss_l + flip_loss_s + scale_loss) if args.lr_scale  else \
 		
 			losses = 0.9 * loss + 0.1 * (flip_loss_l + flip_loss_s + scale_loss) \
 				if args.arch == 'grn101' or args.arch=='grn50' else loss + flip_loss_l + flip_loss_s + scale_loss
 			
 			if args.acc_steps>0:
-				losses /= args.acc_steps		# this will impact the losses, loss, flip_loss_l, flip_loss_s, scale_loss
-												# the ouput losses multiply the acc_steps can meet the above `losses` formula
+				losses /= args.acc_steps		
 				losses.backward()
 				nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
 				if int(step + 1) % int(args.acc_steps) == 0 or int(step+1) == int(batch_amount) :
@@ -340,10 +297,10 @@ def main():
 					optimizer.step()
 					optimizer.zero_grad()
 			else:
-				optimizer.zero_grad()		# set the all grad to zero
-				losses.backward()			# use the `losses` scalar value for back propagation
+				optimizer.zero_grad()		
+				losses.backward()		
 				nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
-				optimizer.step()			# update the all learning-parameters
+				optimizer.step()		
 			
 			if False:
 				print("Here print all the net parameters:\n")
@@ -356,16 +313,15 @@ def main():
 			if (step) % args.display == 0:
 				print(
 					'epoch: {},\ttrain step: {}\tLoss: {:.6f}'.format(epoch+1,
-					step, losses.item() )#losses.data[0])
+					step, losses.item() )
 				)
 				print(
 					'\tcls loss: {:.4f};\tflip_loss_l: {:.4f}'
 					'\tflip_loss_s: {:.4f};\tscale_loss: {:.4f}'.format(
-						#loss.data[0],
 						loss.item(),
-						flip_loss_l.item(), #data[0],
-						flip_loss_s.item(), #data[0],
-						scale_loss.item(), #data[0]
+						flip_loss_l.item(), 
+						flip_loss_s.item(), 
+						scale_loss.item(), 
 					)
 				)
 		
@@ -382,7 +338,6 @@ def main():
 		elapsed = epoch_end - epoch_start
 		print("Epoch time: ", elapsed)
 
-		# test
 		if (epoch+1) % args.snapshot == 0:
 
 			model_file = model_prefix + '_epoch{}'+ datetime.datetime.now().strftime('%Y%m%d%H%M%S') +'.pth'
@@ -410,16 +365,4 @@ def main():
 		print('epoch{0} result:{1}'.format(k, v))
 
 if __name__ == '__main__':
-	start_time = datetime.datetime.now()
-	print("\nSTART TIME:", start_time.strftime('%Y-%m-%d %H:%M:%S'), "\n")  # print local time
 	main()
-	end_time = datetime.datetime.now()
-	print("\nENE TIME:", end_time.strftime('%Y-%m-%d %H:%M:%S'))  # print local time
-	use_time = (end_time - start_time).seconds
-	# calculate elapse time
-	m, s = divmod(use_time, 60)
-	h, m = divmod(m, 60)
-	d, h = divmod(h, 24)
-	d = (end_time - start_time).days
-	# print elapse time, format hours:mins:secs
-	print("[Elapse time]:%02d-days:%02d-hours:%02d-minutes:%02d-seconds\n" % (d, h, m, s))
