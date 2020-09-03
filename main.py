@@ -285,7 +285,7 @@ def main():
 			scale_loss = F.mse_loss(hm_l, hm_s)
 			
 		
-			losses = 0.9 * loss + 0.1 * (flip_loss_l + flip_loss_s + scale_loss) \
+			losses = 0.6 * loss + 0.4 * (flip_loss_l + flip_loss_s + scale_loss) \
 				if args.arch == 'grn101' or args.arch=='grn50' else loss + flip_loss_l + flip_loss_s + scale_loss
 			
 			if args.acc_steps>0:
