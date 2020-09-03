@@ -1,3 +1,3 @@
 # G-CAM
 
-The source code will be released right now
+MS-COCO and NUS-WIDE will be available soon.
