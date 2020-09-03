@@ -15,14 +15,12 @@ urls = {
 	"image_set": "http://press.liacs.nl:8080/mirflickr/mirflickr25k.v3/mirflickr25k.zip",
 	"annotation_set": "http://press.liacs.nl:8080/mirflickr/mirflickr25k.v3/mirflickr25k_annotations_v080.zip"}
 
-# 24 classes
 object_categories = ['animals', 'baby', 'bird', 'car','clouds','dog',
                      'female', 'flower', 'food','indoor','lake','male',
                      'night','people','plant_life','portrait','river','sea',
                      'sky','structures', 'sunset', 'transport','tree','water',
                      ]
 
-# if dataset is all prepared
 def get_all_annotation_txt(root_dir):
 	'''
 	get the all annotation txt file name
@@ -50,17 +48,9 @@ def get_all_annotation_txt(root_dir):
 
 
 def write_csv(path_name, class_name, file_name, csv_file, root):
-	'''
-	transform txt into csv
-	:param path_name:   txt path+name
-	:param csv_destination: csv file destination
-	:return:
-	'''
 	img_label_dict = {}
 	for i in range(len(path_name)):
-		# print("file_name[i]=",file_name[i])
 		txt_name = str(file_name[i].split('.')[-2])
-		# print("path_name[i]=",path_name[i])
 		with open(str(root + "/" + file_name[i]), 'r') as f:
 			all_lines = f.readlines()
 			for item in all_lines:
@@ -68,9 +58,7 @@ def write_csv(path_name, class_name, file_name, csv_file, root):
 				if str(info) not in img_label_dict.keys():
 					img_label_dict[str(info)] = [-1 for ii in range(len(class_name))]
 				img_label_dict[str(info)][class_name.index(txt_name)] = 1
-		# print(img_label_dict)
-	
-	# write a csv file
+		
 	print('[dataset] write file %s' % csv_file)
 	with open(csv_file, 'w') as csvfile:
 		fieldnames = ['name']
@@ -91,8 +79,8 @@ def write_csv(path_name, class_name, file_name, csv_file, root):
 def download_mirflickr25k(root, phase):
 	if not os.path.exists(root):
 		os.makedirs(root)
-	tmpdir = os.path.join(root, 'tmp/')  # .zip file here
-	data = os.path.join(root, 'data/')  # unzip file here
+	tmpdir = os.path.join(root, 'tmp/')  
+	data = os.path.join(root, 'data/')  
 	if not os.path.exists(data):
 		os.makedirs(data)
 	if not os.path.exists(tmpdir):
@@ -107,14 +95,11 @@ def download_mirflickr25k(root, phase):
 		print('Downloading: "{0}" to {1}\n'.format(urls[phase], cached_file))
 		os.chdir(tmpdir)
 		subprocess.call('wget ' + urls[phase], shell=True)
-		# chage directory into root
 		os.chdir(root)
 	
-	# extract image file
 	img_data = os.path.join(data, filename.split('.')[0])
 	if not os.path.exists(img_data):
 		print('[dataset] Extracting zip file {file} to {path}'.format(file=cached_file, path=data))
-		# unzip coco dataset into tmp directory
 		command = 'unzip {0} -d {1}'.format(cached_file, data)
 		os.system(command)
 	
@@ -160,39 +145,27 @@ def pandas_split(path,per=0.4):
 	df_train.to_csv('./mirflickr25k_train_'+ str((1-per)*10) +'.csv')
 	print(df.shape, df_test.shape, df_train.shape)
 	
-# def generate_all_label_csv():
-	# # 根据原始的mirflickr25k的标签txt生成所有的图像的对应的标签的.csv文件
-	# root_dir = \
-	# 	"/data/xieyanzhao_files_in_data/Hash_coder/ML_GCN_Modified_20191120/data/mirflickr_25K/data/mirflickr25k_annotations_v080"
-	# path_name,class_name,file_name,base_root=get_all_annotation_txt(root_dir)
-	# write_csv(path_name,class_name,file_name,'./mirflickr_img_label.csv',base_root)
 
 class MirFlickr25kPreProcessing(data.Dataset):
 	def __init__(self, root, set, target_transform=None, inp_name=None, adj=None):
 		print("load {0} file\n".format(inp_name))
 		self.root = root
 		self.path_images = os.path.join(root, 'data','mirflickr25k')
-		# self.path_images = os.path.join(root, 'VOCdevkit', 'VOC2007', 'JPEGImages')
-		self.set = set  # its 'trainval' or 'test'
+		self.set = set  
 		self.transform = transforms.Compose([
-			# transforms.CenterCrop((crop_size, crop_size)),
 			transforms.ToTensor(),
 			transforms.Normalize(mean=[0.485, 0.456, 0.406],
 								 std=[0.229, 0.224, 0.225]),
 		])
 		self.target_transform = target_transform
 		
-		# download dataset
 		download_mirflickr25k(self.root,'image_set')
 		download_mirflickr25k(self.root, 'annotation_set')
 		
-		# define path of csv file
-		path_csv = os.path.join(self.root, 'csv_files')  # /files/VOC2007
-		# define filename of csv file
+		path_csv = os.path.join(self.root, 'csv_files')  
 		file_csv = os.path.join(path_csv, 'mirflickr25k_' + set + '.csv')
-		# create the csv file if necessary
 		if not os.path.exists(file_csv):
-			if not os.path.exists(path_csv):  # create dir if necessary
+			if not os.path.exists(path_csv):  
 				os.makedirs(path_csv)
 		
 		self.classes = object_categories
@@ -208,21 +181,14 @@ class MirFlickr25kPreProcessing(data.Dataset):
 	def __getitem__(self, index):
 		
 		path, target = self.images[index]
-		# print("MirFlickr25kPreprocessing __getitem__ says:path=\n{0},target=\n{1}".format(path, target))
-		# print("self.path_iamges=",self.path_images)
 		img = Image.open(os.path.join(self.path_images,'im'+ path + '.jpg')).convert('RGB')
 
-		# crop the imges
 		img1 = img.resize((224, 224))
 		img2 = img.resize((192, 192))
-		# large orig
 		image_lo = self.transform(img1)
-		# large flip
 		image_lf = self.transform(img1.transpose(Image.FLIP_LEFT_RIGHT))
 		
-		# small orig
 		image_so = self.transform(img2)
-		# small flip
 		image_sf = self.transform(img2.transpose(Image.FLIP_LEFT_RIGHT))
 		
 		return image_lo, image_lf, image_so, image_sf, target, self.inp
@@ -251,22 +217,4 @@ def get_mirflickr25k(inp_dir, data_dir):
 	testset = MirFlickr25kPreProcessing(data_dir, set='test', inp_name=inp_dir)
 	return trainset, testset
 
-
-if __name__ == "__main__":
-	inpdir, datadir = '../ML-SGCN4TNNLS/data/mirflickr25k/mirflickr25k_glove_word2vec.pkl', \
-					  '../ML-SGCN4TNNLS/data/mirflickr25k'
-	trainset, testset = get_mirflickr25k(inpdir, datadir)
-	train_loader = torch.utils.data.DataLoader(
-		trainset,
-		batch_size=16,
-		shuffle=True,
-		num_workers=4,
-	)
-	
-	for step, data in enumerate(train_loader):
-		print("step {0}".format(step))
-		for i in range(len(data)):
-			print(i, '\n', data[i])
-		
-		sys.exit()
 	

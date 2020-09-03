@@ -1,9 +1,4 @@
 # -*- coding=utf-8 -*-
-#############################################################################
-# resnet.py文件中有各种resent网络可选。
-# 其中最最重要的（也是唯一我们需要改动的）地方就是第143行中的forward函数，
-# 这里我们从第154行开始详细过一遍。
-#############################################################################
 import torch.nn as nn
 import torch
 import math, sys
@@ -148,7 +143,6 @@ class ResNet(nn.Module):
 		return nn.Sequential(*layers)
 
 	def forward(self, x):
-		# modify the forward function
 		x = self.conv1(x)
 		x = self.bn1(x)
 		x = self.relu(x)
@@ -158,33 +152,21 @@ class ResNet(nn.Module):
 		x = self.layer2(x)
 		x = self.layer3(x)
 		x = self.layer4(x)
-		feat = x			# #获取feature maps, feat.size = [2*batchsize, 2048 ,7(or 6), 7(or 6)]
-		N, C, H, W = feat.shape		# N is batch size , C=Channel, H=Height, W=Width
-		# global
-		# before avgpool the `x`size is [2*batchsize, 2048, 7(or 6), 7(or 6)]
-		x = self.avgpool(x)			# global average pooling
-		# after avgpool x.size is [2*batchsize, 2048, 1, 1]
-		# after flatten the vector x.size = [2*batchsize, 2048]
+		feat = x			
+		N, C, H, W = feat.shape		
+		x = self.avgpool(x)			
 		x = x.view(x.size(0), -1)
-		# y.size = [2*batchsize, num_classes]
 		y = self.fc_all(x)
 
-		# local
-		# get the FC parameters
-		params = list(self.parameters())	# params.size = 161
-		# fc_weights.size = [num_classes, 2048]
+		params = list(self.parameters())	
 		fc_weights = params[-2].data
-		# transfer the `fc_weights` shape to [1, 2048, num_classes, 1, 1]
-		fc_weights = fc_weights.view(1, self.num_labels, C, 1, 1)		# reshape into 1 * L * C * 1 * 1
+		fc_weights = fc_weights.view(1, self.num_labels, C, 1, 1)
 		fc_weights = Variable(fc_weights, requires_grad = False)
 
-		# attention
-		feat = feat.unsqueeze(1)	# N*C*H*W ——> N * 1 * C * H * W
-		hm = feat * fc_weights		# calculate the `heatmap`,out dim = N * L * C * H * W
-		hm = hm.sum(2)		# N * self.num_labels * H * W , sum along with the `dim==2`
-							# from (N,L,C,H,W) to (N,L,H,W)
+		feat = feat.unsqueeze(1)	
+		hm = feat * fc_weights		
+		hm = hm.sum(2)		
 
-		# heatmap.size = [2*batchsize, num_classes, 7(or 6), 7(or 6)]
 		heatmap = hm
 
 		return y, heatmap
@@ -203,7 +185,6 @@ def resnet18(pretrained=False, **kwargs):
 		pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}
 		model_dict.update(pretrained_dict)
 		model.load_state_dict(model_dict)
-		# model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
 	return model
 
 
@@ -229,13 +210,9 @@ def resnet50(pretrained=False, **kwargs):
 	if pretrained:
 		pretrained_dict = model_zoo.load_url(model_urls['resnet50'])
 		model_dict = model.state_dict()
-		# for k,v in pretrained_dict.items():
-		# 	if k in model_dict:
-		# 		print(k)
 		pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}
 		model_dict.update(pretrained_dict)
 		model.load_state_dict(model_dict)
-		# model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
 	return model
 
 
@@ -252,7 +229,6 @@ def resnet101(pretrained=False, **kwargs):
 		pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}
 		model_dict.update(pretrained_dict)
 		model.load_state_dict(model_dict)
-		# model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
 	return model
 
 

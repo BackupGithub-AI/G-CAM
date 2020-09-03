@@ -17,9 +17,9 @@ class GraphConvolution(nn.Module):
 	def __init__(self, in_features, out_features, bias=False):
 		
 		super(GraphConvolution, self).__init__()
-		self.in_features = in_features  # 300, same as the inp[0].shape
-		self.out_features = out_features  # 1024
-		self.weight = Parameter(torch.Tensor(in_features, out_features))  # self.weight->[300,1024]
+		self.in_features = in_features  
+		self.out_features = out_features  
+		self.weight = Parameter(torch.Tensor(in_features, out_features))  
 		if bias:
 			self.bias = Parameter(torch.Tensor(1, 1, out_features))
 		else:
@@ -34,8 +34,8 @@ class GraphConvolution(nn.Module):
 			self.bias.data.uniform_(-stdv, stdv)
 	
 	def forward(self, input, adj):
-		support = torch.matmul(input, self.weight)  # support->20*1024
-		output = torch.matmul(adj, support)  # output->20*1024
+		support = torch.matmul(input, self.weight)  
+		output = torch.matmul(adj, support)  
 		if self.bias is not None:
 			return output + self.bias
 		else:
@@ -65,13 +65,9 @@ class GCNResnet(nn.Module):
 		self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
 		self.avgpool = nn.AdaptiveAvgPool2d(1)
 
-		# self.fc_all = nn.Linear(512 * block.expansion, self.num_labels)
-		# 2 layers of GCN
 		self.gc1 = GraphConvolution(in_channel, 1024)
 		self.gc2 = GraphConvolution(1024, 2048)
 		self.relu = nn.LeakyReLU(0.2)
-		# t = self.opt.threshold_tao
-		# _adj = gen_A(self.opt.threshold_p, num_classes, t, adj_file)
 		_adj = gen_A(p, num_labels, tao, adj_file)
 		self.A = Parameter(torch.from_numpy(_adj).float())
 
@@ -101,14 +97,12 @@ class GCNResnet(nn.Module):
 		return nn.Sequential(*layers)
 
 	def forward(self, x, inp):
-		# gcn module
 		inp = inp[0].cuda() if torch.cuda.is_available() else inp[0]
 		adj = gen_adj(self.A).detach().cuda() if torch.cuda.is_available() else  gen_adj(self.A).detach()
-		g_weights = self.gc1(inp, adj)  # x->20*1024
-		g_weights = self.relu(g_weights)  ## use leakyrelu
-		g_weights = self.gc2(g_weights, adj)  # x shape is [num_classes, 2048],
+		g_weights = self.gc1(inp, adj)  
+		g_weights = self.relu(g_weights)  
+		g_weights = self.gc2(g_weights, adj)  
 		
-		# modify the forward function
 		x = self.conv1(x)
 		x = self.bn1(x)
 		x = self.relu(x)
@@ -118,29 +112,24 @@ class GCNResnet(nn.Module):
 		x = self.layer2(x)
 		x = self.layer3(x)
 		x = self.layer4(x)
-		feat = x			# #feature maps
-		N, C, H, W = feat.shape		# N is batch size , C=Channel, H=Height, W=Width
-		# global
-		x = self.avgpool(x)			# global average pooling
-		x = x.view(x.size(0), -1)	# flatten
+		feat = x			
+		N, C, H, W = feat.shape		
+		x = self.avgpool(x)	
+		x = x.view(x.size(0), -1)	
 		y = torch.matmul(x, torch.transpose(g_weights, 0, 1))
 
-		# local
-		g_weights = g_weights.view(1, self.num_labels, C, 1, 1)		# reshape into 1 * L * C * 1 * 1
-		fc_weights = g_weights # fc_weights = Variable(g_weights, requires_grad = True)
+		g_weights = g_weights.view(1, self.num_labels, C, 1, 1)	
+		fc_weights = g_weights 
 
-		# attention
-		feat = feat.unsqueeze(1)	# N*C*H*W ——> N * 1 * C * H * W
-		hm = feat * fc_weights		# calculate the `heatmap`,out dim = N * L * C * H * W
-		hm = hm.sum(2)		# N * self.num_labels * H * W , sum along with the `dim==2`
-							# from (N,L,C,H,W) to (N,L,H,W)
+		feat = feat.unsqueeze(1)	
+		hm = feat * fc_weights		
+		hm = hm.sum(2)		
 		heatmap = hm
 
 		return y, heatmap
 	
 	def get_config_optim(self, lr, scale = 10.0):
 		return [
-			# resnet
 			{'params': self.conv1.parameters(), 'lr': lr},
 			{'params': self.bn1.parameters(), 'lr': lr},
 			{'params': self.relu.parameters(), 'lr': lr},
@@ -149,7 +138,6 @@ class GCNResnet(nn.Module):
 			{'params': self.layer2.parameters(), 'lr': lr},
 			{'params': self.layer3.parameters(), 'lr': lr},
 			{'params': self.layer4.parameters(), 'lr': lr},
-			# GCN
 			{'params': self.gc1.parameters(), 'lr': lr * scale},
 			{'params': self.gc2.parameters(), 'lr': lr * scale},
 		]
@@ -161,13 +149,9 @@ def grn50(pretrained=False, **kwargs):
 	if pretrained:
 		pretrained_dict = model_zoo.load_url(rn.model_urls['resnet50'])
 		model_dict = model.state_dict()
-		# for k,v in pretrained_dict.items():
-		# 	if k in model_dict:
-		# 		print(k)
 		pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}
 		model_dict.update(pretrained_dict)
 		model.load_state_dict(model_dict)
-		# model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
 	return model
 
 

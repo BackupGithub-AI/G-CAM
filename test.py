@@ -1,7 +1,4 @@
 # -*- coding=utf-8 -*-
-####################################################################################
-# test.py文件计算并打印评估指标。
-####################################################################################
 import torch, sys
 import torch.nn as nn
 from tqdm import tqdm, trange
@@ -24,12 +21,7 @@ from wider import get_subsets, imshow
 import scipy.io
 import os
 
-
-# num_attr = 14
-
 def calc_average_precision(y_true, y_score, num_classes):
-	# print("(2)y_true = ", y_true.shape, y_true)
-	# print("(3)y_score = ", y_score.shape, y_score)
 	aps = np.zeros(num_classes)
 	for i in range(num_classes):
 		true = y_true[i]
@@ -41,8 +33,6 @@ def calc_average_precision(y_true, y_score, num_classes):
 		
 		true[true == -1.] = 0
 		
-		# print("(4)true = ", true, true.shape)
-		# print('(5)score = ', score, score.shape)
 		ap = average_precision_score(true, score)
 		aps[i] = ap
 	
@@ -71,8 +61,8 @@ def calc_acc_pr_f1(y_true, y_pred, num_classes):
 def calc_mean_acc(y_true, y_pred, num_classes):
 	macc = np.zeros(num_classes)
 	for i in range(num_classes):
-		true = y_true[i]  # -1, 0, 1
-		pred = y_pred[i]  # 0, 1
+		true = y_true[i]  
+		pred = y_pred[i]  
 		
 		true[true == -1.] = 0
 		
@@ -102,8 +92,8 @@ def calc_acc_pr_f1_overall(y_true, y_pred):
 
 
 def calc_mean_acc_overall(y_true, y_pred):
-	true = y_true  # 0, 1
-	pred = y_pred  # 0, 1
+	true = y_true  
+	pred = y_pred  
 	
 	true[true == -1.] = 0
 	
@@ -118,7 +108,6 @@ def calc_mean_acc_overall(y_true, y_pred):
 
 
 def eval_example(y_true, y_pred):
-	# example-based metrics
 	N = y_true.shape[1]
 	
 	acc = 0.
@@ -127,15 +116,15 @@ def eval_example(y_true, y_pred):
 	f1 = 0.
 	
 	for i in range(N):
-		true_exam = y_true[:, i]  # column: labels for an example
+		true_exam = y_true[:, i]  
 		pred_exam = y_pred[:, i]
 		
 		temp = true_exam + pred_exam
 		
-		yi = true_exam.sum()  # number of attributes for i
-		fi = pred_exam.sum()  # number of predicted attributes for i
-		ui = (temp > 0).sum()  # temp == 1 or 2 means the union of attributes in yi and fi
-		ii = (temp == 2).sum()  # temp == 2 means the intersection
+		yi = true_exam.sum() 
+		fi = pred_exam.sum()  
+		ui = (temp > 0).sum()  
+		ii = (temp == 2).sum()  
 		
 		if ui != 0:
 			acc += 1.0 * ii / ui
@@ -152,15 +141,12 @@ def eval_example(y_true, y_pred):
 
 
 def extract_top(pred, gtruth, k=3):
-	# default find top k value
-	# pred_tmp and gtruth_tmp shape are all [test_set_item, num_classes]
 	pred_tmp = torch.transpose(pred, 0, 1)
 	gtruth_tmp = torch.transpose(gtruth, 0, 1)
-	# print('index = ', index[0], index[1])
 	gtruth_tmp[gtruth_tmp == -1] = 0
 	n, c = pred_tmp.shape[0], pred_tmp.shape[1]
 	scores = np.zeros((n, c)) - 1
-	index = pred_tmp.topk(k, 1, True, True)[1].cpu().numpy()		# index[1] is the `index` tensor
+	index = pred_tmp.topk(k, 1, True, True)[1].cpu().numpy()		
 	tmp = pred_tmp.cpu().numpy()
 	for i in range(n):
 		for ind in index[i]:
@@ -178,23 +164,14 @@ def evaluation( scores_, targets_):
 		Ng[k] = np.sum(targets == 1)
 		Np[k] = np.sum(scores >= 0)
 		Nc[k] = np.sum(targets * (scores >= 0))
-		# print("(7) Ng[{0}] = {1}".format(k, Ng[k]))
-		# print("(8) Np[{0}] = {1}".format(k, Np[k]))
-		# print("(9) Nc[{0}] = {1}".format(k, Nc[k]))
 	Np[Np == 0] = 1
 	OP = np.sum(Nc) / np.sum(Np)
-	# print("(10) OP = ", OP)
 	OR = np.sum(Nc) / np.sum(Ng)
-	# print("(11) OR = ", OR)
 	OF1 = (2 * OP * OR) / (OP + OR)
-	# print("(11) OF1 = ", OF1)
 	
 	CP = np.sum(Nc / Np) / n_class
-	# print("(12) CP = ", CP)
 	CR = np.sum(Nc / Ng) / n_class
-	# print("(13) CR = ", CR)
 	CF1 = (2 * CP * CR) / (CP + CR)
-	# print("(14) CF1 = ", CF1)
 	return OP, OR, OF1, CP, CR, CF1
 
 
@@ -207,7 +184,7 @@ def test(model, test_loader, epoch, flag=False):
 	gtruth = gtruth.cuda()
 	test_loader = tqdm(test_loader, desc='({0})Test'.format(epoch))
 	for i, sample in enumerate(test_loader):
-		images = sample[0]  # test just large
+		images = sample[0] 
 		labels = sample[4]
 		if flag:
 			inp = sample[5]
@@ -221,14 +198,12 @@ def test(model, test_loader, epoch, flag=False):
 		test_input = Variable(images)
 		
 		if flag:
-			y, _ = model(test_input, test_inp)  # adj involves in the forward processing
+			y, _ = model(test_input, test_inp)  
 		else:
 			y, _ = model(test_input)
 		
 		num_classes = y.shape[1]
-		# every loop :probs.size = [num_classes, batch_size], when loop end, the size is [num_classes, testset_item]
 		probs = torch.cat((probs, y.data.transpose(1, 0)), 1)
-		# every loop :gtruth.size = [num_classes, batch_size], when loop end, the size is [num_classes, testset_item]
 		gtruth = torch.cat((gtruth, labels.transpose(1, 0)), 1)
 		print("probs = {0}, gtruth = {1}".format(probs, gtruth))
 		sys.exit()
@@ -237,11 +212,9 @@ def test(model, test_loader, epoch, flag=False):
 	OP, OR, OF1, CP, CR, CF1 = extract_top(probs.cpu(), gtruth.cpu())
 	print("top_3 performance: \nOP={0}, OR={1}, OF1={2}, CP={3}, CR={4} CF1={5}\n". \
 		  format(OP, OR, OF1, CP, CR, CF1))
-	# print('probs = ', probs, probs.shape)
 	preds = np.zeros((probs.size(0), probs.size(1)))
 	temp = probs.cpu().numpy()
 	preds[temp > 0.] = 1
-	# print('preds = ', preds, preds.shape)
 	
 	if not os.path.isdir('./preds'):
 		os.mkdir('./preds')
@@ -300,24 +273,3 @@ def test(model, test_loader, epoch, flag=False):
 		'top-3_CR':CR,
 		'top-3_CF1': CF1, }
 
-
-if __name__ == '__main__':
-	anno_dir = '/path/to/wider_attribute_annotation'
-	data_dir = '/path/to/Image'
-	trainset, testset = get_subsets(anno_dir, data_dir)
-	test_loader = torch.utils.data.DataLoader(testset,
-											  batch_size=16,
-											  shuffle=False,
-											  num_workers=4)
-	
-	# modify to test multiple checkpoints continuously
-	for i in range(11, 12):
-		model_file = '/path/to/model_resnet50_{}.pth'.format(i)
-		model = torch.load(model_file)
-		print(model_file)
-		model.eval()
-		start_time = time.clock()
-		test(model, test_loader, i)
-		end_time = time.clock()
-		print('Time: ', end_time - start_time)
-		print('\n')
